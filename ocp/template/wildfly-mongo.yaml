@@ -1,0 +1,316 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: wildfly-mongo
+message: You can connect to the database using MongoDB connection URL mongodb://${DB_USERNAME}:${DB_PASSWORD}@${APPLICATION_NAME}-data:27017/${DB_DATABASE}
+objects:
+### Application Layer: WildFly
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-app
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: wildfly-alpine
+  spec:
+    lookupPolicy:
+      local: false
+    tags:
+    - from:
+        kind: DockerImage
+        name: docker.io/maltron/wildfly-alpine:latest
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: Source
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-app
+  spec:
+    failedBuildsHistoryLimit: 5
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${APPLICATION_NAME}-app:latest
+    postCommit: {}
+    resources: {}
+    runPolicy: Serial
+    source:
+      binary: {}
+      type: Binary
+    strategy:
+      sourceStrategy:
+        from:
+          kind: ImageStreamTag
+          name: wildfly-alpine:latest
+      type: Source
+    successfulBuildsHistoryLimit: 5
+    triggers:
+    - github:
+        secret: ${GITHUB_WEBHOOK_SECRET}
+      type: GitHub
+    - generic:
+        secret: ${GENERIC_WEBHOOK_SECRET}
+      type: Generic
+    - imageChange: {}
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-app
+  spec:
+    replicas: 1
+    selector:
+      component: application-server
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-app
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          component: application-server
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}-app
+        name: ${APPLICATION_NAME}-app
+      spec:
+        containers:
+        - env:
+          - name: DB_SERVICE
+            value: ${APPLICATION_NAME}-data
+          - name: DB_USERNAME
+            value: ${DB_USERNAME}
+          - name: DB_PASSWORD
+            value: ${DB_PASSWORD}
+          - name: DB_DATABASE
+            value: ${DB_DATABASE}
+          - name: BROKER_ADDRESS
+            value: tcp://${BROKER_ADDRESS}:61616?jms.rmIdFromConnectionId=true
+          - name: BROKER_USERNAME
+            value: ${BROKER_USERNAME}
+          - name: BROKER_PASSWORD
+            value: ${BROKER_PASSWORD}
+          - name: BROKER_TOPICS
+            value: ${BROKER_TOPICS}
+          - name: BROKER_QUEUES
+            value: ${BROKER_QUEUES}
+          image: docker.io/maltron/wildfly-alpine:latest
+          imagePullPolicy: IfNotPresent
+          name: ${APPLICATION_NAME}-app
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}-app
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}-app:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      service.alpha.openshift.io/dependencies: '[{"name":"${APPLICATION_NAME}-data","namespace":"","kind":"Service"}]'
+      description: The web server's http port.
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-app
+  spec:
+    ports:
+    - port: 8080
+      targetPort: 8080
+    selector:
+      component: application-server
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-app
+- apiVersion: v1
+  id: ${APPLICATION_NAME}-app
+  kind: Route
+  metadata:
+    annotations:
+      description: Route for application's http service.
+    labels:
+      component: application-server
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-app
+  spec:
+    port:
+      targetPort: 8080
+    to:
+      kind: Service
+      name: ${APPLICATION_NAME}-app
+### Persistent Layer: MongoDB
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      component: database
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-data
+  spec:
+    replicas: 1
+    selector:
+      component: database
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-data
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          component: database
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}-data
+        name: ${APPLICATION_NAME}-data
+      spec:
+        containers:
+        - env:
+          - name: MONGODB_USER
+            value: ${DB_USERNAME}
+          - name: MONGODB_PASSWORD
+            value: ${DB_PASSWORD}
+          - name: MONGODB_DATABASE
+            value: ${DB_DATABASE}
+          - name: MONGODB_ADMIN_PASSWORD
+            value: ${DB_ADMIN_PASSWORD}
+          - name: MONGODB_NOPREALLOC
+            value: ${MONGODB_NOPREALLOC}
+          - name: MONGODB_SMALLFILES
+            value: ${MONGODB_SMALLFILES}
+          - name: MONGODB_QUIET
+            value: ${MONGODB_QUIET}
+          image: ' '
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            initialDelaySeconds: 30
+            tcpSocket:
+              port: 27017
+            timeoutSeconds: 1
+          name: mongodb
+          ports:
+          - containerPort: 27017
+            protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -i
+              - -c
+              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
+                --eval="quit()"
+            initialDelaySeconds: 3
+            timeoutSeconds: 1
+        terminationGracePeriodSeconds: 60
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - mongodb
+        from:
+          kind: ImageStreamTag
+          name: mongodb:latest
+          namespace: openshift
+        lastTriggeredImage: ""
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: The database server's port.
+    labels:
+      component: database
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-data
+  spec:
+    ports:
+    - port: 27017
+      targetPort: 27017
+    selector:
+      component: database
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-data
+parameters:
+- description: Application's name
+  name: APPLICATION_NAME
+  required: true
+  value: microservice
+- description: Disable data file preallocation.
+  name: MONGODB_NOPREALLOC
+- description: Set MongoDB to use a smaller default data file size.
+  name: MONGODB_SMALLFILES
+- description: Runs MongoDB in a quiet mode that attempts to limit the amount of output.
+  name: MONGODB_QUIET
+- description: Database user name
+  from: user[a-zA-Z0-9]{3}
+  generate: expression
+  name: DB_USERNAME
+  required: true
+- description: Database user password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: DB_PASSWORD
+  required: true
+- description: Database admin password
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: DB_ADMIN_PASSWORD
+  required: true
+- description: Database name
+  name: DB_DATABASE
+  required: true
+  value: sampledb
+- name: BROKER_ADDRESS
+  required: true
+  value: broker-amq-tcp:61616
+- name: BROKER_USERNAME
+  required: true
+  value: mauricio
+- name: BROKER_PASSWORD
+  required: true
+  value: maltron
+- name: BROKER_TOPICS
+  description: Topic names, separated by commas. These topics will be automatically
+    created when the broker starts.
+  value: exampleTopic
+- name: BROKER_QUEUES
+  description: Queues names, separated by commas. These topics will be automatically
+    created when the broker starts.
+  value: exampleQueue
+- description: GitHub trigger secret
+  displayName: Github Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GITHUB_WEBHOOK_SECRET
+  required: true
+- description: Generic build trigger secret
+  displayName: Generic Webhook Secret
+  from: '[a-zA-Z0-9]{8}'
+  generate: expression
+  name: GENERIC_WEBHOOK_SECRET
+  required: true
+
+
+
+
