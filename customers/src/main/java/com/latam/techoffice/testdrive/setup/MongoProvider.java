@@ -1,8 +1,13 @@
 package com.latam.techoffice.testdrive.setup;
 
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
+import com.mongodb.MongoCredential;
+import com.mongodb.MongoException;
+import com.mongodb.ServerAddress;
 import com.mongodb.client.MongoDatabase;
+
+import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.PostConstruct;
@@ -19,33 +24,58 @@ public class MongoProvider {
     private static final Logger LOG = Logger.getLogger(MongoProvider.class.getName());
     
     private MongoClient client;
+    private String database;
     
     @PostConstruct
     private void init() {
         LOG.log(Level.INFO, ">>> init() Connecting to Database");
-        MongoClientURI clientURI = new MongoClientURI(connectionString());
-        client = new MongoClient(clientURI);
+        try {
+            client = new MongoClient(serverAddress(), credentials());
+        } catch(MongoException ex) {
+            LOG.log(Level.SEVERE, "### MongoDB: unable to connect: %s", ex.getMessage());
+        }
     }
     
-    private String connectionString() {
-        String username = System.getenv("DB_USERNAME");
-        String password = System.getenv("DB_PASSWORD");
-        String service = System.getenv("DB_SERVICE");
-        String database = System.getenv("DB_DATABASE");
+    private ServerAddress serverAddress() {
+        String hostname = System.getenv("DB_SERVICE_HOSTNAME");
+        if(hostname == null) 
+            LOG.log(Level.SEVERE, "### MongoDB: variable DB_SERVICE_HOSTNAME is not set");
         
-        if(username == null || password == null || service == null
-                || database == null) {
-            LOG.log(Level.SEVERE, "### One of the Connection String is NULL"+
-                    " Username: {0} Password: {1} Service: {2} Database {3}",
-                    new Object[] {username, password, service, database});
+        String portString = System.getenv("DB_SERVICE_PORT");
+        if(portString == null)
+            LOG.log(Level.SEVERE, "### MongoDB: variable DB_SERVICE_PORT is not set");
+        
+        int port = 0;
+        try {
+            port = Integer.parseInt(portString);
+        } catch(NumberFormatException ex) {
+            LOG.log(Level.SEVERE, "### MongoDB: DB_SERVICE_PORT is not a integer");
         }
         
-        return String.format("mongodb://%s:%s@%s:27017/%s", 
-                                         username, password, service, database);
+        return new ServerAddress(hostname, port);
     }
     
+    private List credentials() {
+        String username = System.getenv("DB_USERNAME");
+        if(username == null) 
+            LOG.log(Level.SEVERE, "### MongoDB: variable DB_USERNAME is not set");
+        
+        String password = System.getenv("DB_PASSWORD");
+        if(password == null) 
+            LOG.log(Level.SEVERE, "### MongoDB: variable DB_PASSWORD is not set");
+        
+        database = System.getenv("DB_DATABASE");
+        if(database == null)
+            LOG.log(Level.SEVERE, "### MongoDB: variable DB_DATABASE is not set");
+        
+        return Arrays.asList(MongoCredential.createCredential(
+                                    username, database, password.toCharArray()));
+    }
+    
+
+
     @Lock(LockType.READ)
     public MongoDatabase getDatabase() {
-        return client.getDatabase(System.getenv("DB_DATABASE"));
+        return client.getDatabase(database);
     }
 }
