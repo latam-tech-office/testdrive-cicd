@@ -66,8 +66,10 @@ public class Service {
     
     public String create(Customer customer) 
                                 throws CreateException, ServerInternalException {
+        LOG.log(Level.INFO, ">>> (Service) Customer: %s", customer.toString());
         Document document = toDocument(customer);
         try {
+            LOG.log(Level.INFO, ">>> (Service) inserting Customer: %s", customer.toString());
             getCollection().insertOne(document);
         } catch(MongoWriteConcernException | MongoWriteException e) {
             throw new CreateException("unable to create customer");

@@ -15,10 +15,15 @@ public class ConverterCustomer {
     private static final Logger LOG = Logger.getLogger(ConverterCustomer.class.getName());
     
     public static Document toDocument(Customer customer) {
-        return new Document()
-                .append(Customer.TAG_CUSTOMER_ID, new ObjectId(customer.getCustomerID()))
+        Document document = new Document()
                 .append(Customer.TAG_FIRST_NAME, customer.getFirstName())
                 .append(Customer.TAG_LAST_NAME, customer.getLastName());
+        
+        // Is there any customerID available ?
+        if(customer.getCustomerID() != null)
+            document.append(Customer.TAG_CUSTOMER_ID, new ObjectId(customer.getCustomerID()));
+        
+        return document;
     }
     
     public static Customer fromDocument(Document document) {

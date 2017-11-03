@@ -18,6 +18,7 @@ import javax.ws.rs.core.UriInfo;
 import com.latam.techoffice.testdrive.error.NoContentException;
 import com.latam.techoffice.testdrive.error.ServerInternalException;
 import com.latam.techoffice.testdrive.model.Customer;
+import java.util.logging.Level;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.POST;
@@ -60,6 +61,7 @@ public class Resource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response create(Customer customer) 
                                 throws CreateException, ServerInternalException {
+        LOG.log(Level.INFO, ">>> (Resource) Customer: %s", customer.toString());
         String newCustomerID = service.create(customer);
         
         return Response.status(Response.Status.CREATED)
