@@ -94,7 +94,7 @@ objects:
           - name: DB_SERVICE_HOSTNAME
             value: ${APPLICATION_NAME}-data
           - name: DB_SERVICE_PORT
-            value: 27017
+            value: "27017"
           - name: DB_USERNAME
             value: ${DB_USERNAME}
           - name: DB_PASSWORD
