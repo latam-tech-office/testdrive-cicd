@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Template
 metadata:
-  name: wildfly-mongo
-message: You can connect to the database using MongoDB connection URL mongodb://${DB_USERNAME}:${DB_PASSWORD}@${APPLICATION_NAME}-data:27017/${DB_DATABASE}
+  name: wildfly-mysql
+message: Deploying WildFly and MySQL all together.
 objects:
 ### Application Layer: WildFly
 - apiVersion: v1
@@ -18,14 +18,14 @@ objects:
     labels:
       component: application-server
       application: ${APPLICATION_NAME}
-    name: wildfly-alpine
+    name: wildfly-mysql
   spec:
     lookupPolicy:
       local: false
     tags:
     - from:
         kind: DockerImage
-        name: docker.io/maltron/wildfly-alpine:latest
+        name: docker.io/maltron/wildfly-mysql:latest
       importPolicy: {}
       name: latest
       referencePolicy:
@@ -53,7 +53,7 @@ objects:
       sourceStrategy:
         from:
           kind: ImageStreamTag
-          name: wildfly-alpine:latest
+          name: wildfly-mysql:latest
       type: Source
     successfulBuildsHistoryLimit: 5
     triggers:
@@ -94,7 +94,7 @@ objects:
           - name: DB_SERVICE_HOSTNAME
             value: ${APPLICATION_NAME}-data
           - name: DB_SERVICE_PORT
-            value: "27017"
+            value: "3306"
           - name: DB_USERNAME
             value: ${DB_USERNAME}
           - name: DB_PASSWORD
@@ -111,7 +111,7 @@ objects:
             value: ${BROKER_TOPICS}
           - name: BROKER_QUEUES
             value: ${BROKER_QUEUES}
-          image: docker.io/maltron/wildfly-alpine:latest
+          image: docker.io/maltron/wildfly-mysql:latest
           imagePullPolicy: IfNotPresent
           name: ${APPLICATION_NAME}-app
           ports:
@@ -162,56 +162,78 @@ objects:
     to:
       kind: Service
       name: ${APPLICATION_NAME}-app
-### Persistent Layer: MongoDB
+### Persistent Layer: MySQL
+
+- apiVersion: v1
+  kind: Secret
+  metadata:
+    annotations:
+      template.openshift.io/expose-password: '{.data[''database-password'']}'
+      template.openshift.io/expose-root_password: '{.data[''database-root-password'']}'
+      template.openshift.io/expose-username: '{.data[''database-user'']}'
+    name:  ${APPLICATION_NAME}-data
+  stringData:
+    database-password: ${MYSQL_PASSWORD}
+    database-root-password: ${MYSQL_ROOT_PASSWORD}
+    database-user: ${MYSQL_USER}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      template.openshift.io/expose-uri: mysql://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
+    creationTimestamp: null
+    name:  ${APPLICATION_NAME}-data
+  spec:
+    ports:
+    - name: mysql
+      nodePort: 0
+      port: 3306
+      protocol: TCP
+      targetPort: 3306
+    selector:
+      name:  ${APPLICATION_NAME}-data
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
 - apiVersion: v1
   kind: DeploymentConfig
   metadata:
-    labels:
-      component: database
-      application: ${APPLICATION_NAME}
-    name: ${APPLICATION_NAME}-data
+    creationTimestamp: null
+    name:  ${APPLICATION_NAME}-data
   spec:
     replicas: 1
     selector:
-      component: database
-      application: ${APPLICATION_NAME}
-      deploymentConfig: ${APPLICATION_NAME}-data
+      name:  ${APPLICATION_NAME}-data
     strategy:
       type: Recreate
     template:
       metadata:
+        creationTimestamp: null
         labels:
-          component: database
-          application: ${APPLICATION_NAME}
-          deploymentConfig: ${APPLICATION_NAME}-data
-        name: ${APPLICATION_NAME}-data
+          name: ${APPLICATION_NAME}-data
       spec:
         containers:
-        - env:
-          - name: MONGODB_USER
+        - capabilities: {}
+          env:
+          - name: MYSQL_USER
             value: ${DB_USERNAME}
-          - name: MONGODB_PASSWORD
+          - name: MYSQL_PASSWORD
             value: ${DB_PASSWORD}
-          - name: MONGODB_DATABASE
+          - name: MYSQL_ROOT_PASSWORD
+            value: ${DB_ROOT_PASSWORD}
+          - name: MYSQL_DATABASE
             value: ${DB_DATABASE}
-          - name: MONGODB_ADMIN_PASSWORD
-            value: ${DB_ADMIN_PASSWORD}
-          - name: MONGODB_NOPREALLOC
-            value: ${MONGODB_NOPREALLOC}
-          - name: MONGODB_SMALLFILES
-            value: ${MONGODB_SMALLFILES}
-          - name: MONGODB_QUIET
-            value: ${MONGODB_QUIET}
           image: ' '
           imagePullPolicy: IfNotPresent
           livenessProbe:
             initialDelaySeconds: 30
             tcpSocket:
-              port: 27017
+              port: 3306
             timeoutSeconds: 1
-          name: ${APPLICATION_NAME}-data
+          name: mysql
           ports:
-          - containerPort: 27017
+          - containerPort: 3306
             protocol: TCP
           readinessProbe:
             exec:
@@ -219,83 +241,87 @@ objects:
               - /bin/sh
               - -i
               - -c
-              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
-                --eval="quit()"
-            initialDelaySeconds: 3
+              - MYSQL_PWD="$MYSQL_PASSWORD" mysql -h 127.0.0.1 -u $MYSQL_USER -D $MYSQL_DATABASE
+                -e 'SELECT 1'
+            initialDelaySeconds: 5
             timeoutSeconds: 1
-        terminationGracePeriodSeconds: 60
+          resources:
+            limits:
+              memory: ${MEMORY_LIMIT}
+          securityContext:
+            capabilities: {}
+            privileged: false
+          terminationMessagePath: /dev/termination-log
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
     triggers:
     - imageChangeParams:
         automatic: true
         containerNames:
-        - ${APPLICATION_NAME}-data
+        - mysql
         from:
           kind: ImageStreamTag
-          name: mongodb:latest
-          namespace: openshift
+          name: mysql:${MYSQL_VERSION}
+          namespace: ${NAMESPACE}
         lastTriggeredImage: ""
       type: ImageChange
     - type: ConfigChange
-- apiVersion: v1
-  kind: Service
-  metadata:
-    annotations:
-      description: The database server's port.
-    labels:
-      component: database
-      application: ${APPLICATION_NAME}
-    name: ${APPLICATION_NAME}-data
-  spec:
-    ports:
-    - port: 27017
-      targetPort: 27017
-    selector:
-      component: database
-      application: ${APPLICATION_NAME}
-      deploymentConfig: ${APPLICATION_NAME}-data
+  status: {}
 parameters:
 - description: Application's name
   name: APPLICATION_NAME
   required: true
   value: microservice
-- description: Disable data file preallocation.
-  name: MONGODB_NOPREALLOC
-- description: Set MongoDB to use a smaller default data file size.
-  name: MONGODB_SMALLFILES
-- description: Runs MongoDB in a quiet mode that attempts to limit the amount of output.
-  name: MONGODB_QUIET
-- description: Database user name
-  from: user[a-zA-Z0-9]{3}
+- description: Maximum amount of memory the container can use.
+  displayName: Memory Limit
+  name: MEMORY_LIMIT
+  required: true
+  value: 512Mi
+- description: The OpenShift Namespace where the ImageStream resides.
+  displayName: Namespace
+  name: NAMESPACE
+  value: openshift
+- description: Username for MySQL user that will be used for accessing the database.
+  displayName: MySQL Connection Username
+  from: user[A-Z0-9]{3}
   generate: expression
   name: DB_USERNAME
   required: true
-- description: Database user password
-  from: '[a-zA-Z0-9]{8}'
+- description: Password for the MySQL connection user.
+  displayName: MySQL Connection Password
+  from: '[a-zA-Z0-9]{16}'
   generate: expression
   name: DB_PASSWORD
   required: true
-- description: Database admin password
-  from: '[a-zA-Z0-9]{8}'
+- description: Password for the MySQL root user.
+  displayName: MySQL root user Password
+  from: '[a-zA-Z0-9]{16}'
   generate: expression
-  name: DB_ADMIN_PASSWORD
+  name: DB_ROOT_PASSWORD
   required: true
-- description: Database name
+- description: Name of the MySQL database accessed.
+  displayName: MySQL Database Name
   name: DB_DATABASE
   required: true
   value: sampledb
+- description: Version of MySQL image to be used (5.5, 5.6, 5.7, or latest).
+  displayName: Version of MySQL Image
+  name: MYSQL_VERSION
+  required: true
+  value: "5.7"
 - name: BROKER_ADDRESS
   required: true
-  value: broker-amq-tcp.broker
+  value: broker-amq-tcp:61616
 - name: BROKER_USERNAME
   required: true
-  value: testdrive
+  value: mauricio
 - name: BROKER_PASSWORD
   required: true
-  value: r3dh4t1!
+  value: maltron
 - name: BROKER_TOPICS
   description: Topic names, separated by commas. These topics will be automatically
     created when the broker starts.
-  value: testdrive
+  value: exampleTopic
 - name: BROKER_QUEUES
   description: Queues names, separated by commas. These topics will be automatically
     created when the broker starts.
@@ -312,7 +338,3 @@ parameters:
   generate: expression
   name: GENERIC_WEBHOOK_SECRET
   required: true
-
-
-
-
