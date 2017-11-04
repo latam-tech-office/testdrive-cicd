@@ -236,7 +236,7 @@ objects:
             tcpSocket:
               port: 3306
             timeoutSeconds: 1
-          name: mysql
+          name: ${APPLICATION_NAME}-data
           ports:
           - containerPort: 3306
             protocol: TCP
@@ -263,7 +263,7 @@ objects:
     - imageChangeParams:
         automatic: true
         containerNames:
-        - mysql
+        - ${APPLICATION_NAME}-data
         from:
           kind: ImageStreamTag
           name: mysql:${MYSQL_VERSION}
