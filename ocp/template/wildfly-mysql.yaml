@@ -101,6 +101,12 @@ objects:
             value: ${DB_PASSWORD}
           - name: DB_DATABASE
             value: ${DB_DATABASE}
+          - name: DATASOURCE_CONNECTION
+            value: jdbc:mysql://${APPLICATION_NAME}-data:3306/${DB_DATABASE}?autoReconnect=true&useSSL=false
+          - name: DATASOURCE_USERNAME
+            value: ${DB_USERNAME}
+          - name: DATASOURCE_PASSWORD
+            value: ${DB_PASSWORD}
           - name: BROKER_ADDRESS
             value: tcp://${BROKER_ADDRESS}:61616?jms.rmIdFromConnectionId=true
           - name: BROKER_USERNAME
@@ -163,7 +169,6 @@ objects:
       kind: Service
       name: ${APPLICATION_NAME}-app
 ### Persistent Layer: MySQL
-
 - apiVersion: v1
   kind: Secret
   metadata:
