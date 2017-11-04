@@ -1,0 +1,34 @@
+---
+- name: Creating Tooling for CI/CD
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+     - name: Deleting Customers
+       command: oc delete project customers
+
+     - name: Creating Customers
+       command: oc new-project customers
+       register: customers_creating
+       until: customers_creating.rc == 0
+       retries: 10
+       delay: 10
+
+     - name: Deleting Tooling
+       command: oc delete project tooling
+
+     - name: Creating Tooling
+       command: oc new-project tooling
+       register: tooling_create
+       until: tooling_create.rc == 0
+       retries: 10
+       delay: 10
+
+     - name: Deploying Gogs
+       command: oc new-app -f http://bit.ly/openshift-gogs-persistent-template -p HOSTNAME=gogs.cloudapps.testdrive.com -p SKIP_TLS_VERIFY=true
+     - name: Deploying Jenkins
+       command: oc new-app jenkins-ephemeral
+
+     - name: Giving Jenkins ability to get information into namespace customers
+       command: oc policy add-role-to-user edit system:serviceaccount:tooling:jenkinks -n customers
+

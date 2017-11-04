@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Template
+metadata:
+  name: pipeline-customers
+parameters:
+objects:
+#### PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE 
+#### PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE PIPELINE 
+- apiVersion: v1
+  kind: BuildConfig
+  metadata:
+    name: pipeline-customers
+  spec:
+    runPolicy: Serial
+    source:
+      type: None
+    strategy:
+      jenkinsPipelineStrategy:
+        jenkinsfile: |-
+          node('maven') {
+           stage 'Cloning'
+                git url: 'http://gogs.cloudapps.testdrive.com/demo/customers.git'
+
+           stage 'Building & Testing'
+                sh "mvn clean test -f discountRules/pom.xml"
+
+           stage 'Deploying'
+                sh "oc start-build customers-app --from-file target/customers-1.0.war --follow --wait=true"
+          }
+      type: JenkinsPipeline
+      type: Generic
+  status:
+    lastVersion: 0
