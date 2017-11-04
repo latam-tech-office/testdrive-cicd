@@ -285,17 +285,17 @@ parameters:
   value: sampledb
 - name: BROKER_ADDRESS
   required: true
-  value: broker-amq-tcp:61616
+  value: broker-amq-tcp.broker
 - name: BROKER_USERNAME
   required: true
-  value: mauricio
+  value: testdrive
 - name: BROKER_PASSWORD
   required: true
-  value: maltron
+  value: r3dh4t1!
 - name: BROKER_TOPICS
   description: Topic names, separated by commas. These topics will be automatically
     created when the broker starts.
-  value: exampleTopic
+  value: testdrive
 - name: BROKER_QUEUES
   description: Queues names, separated by commas. These topics will be automatically
     created when the broker starts.
