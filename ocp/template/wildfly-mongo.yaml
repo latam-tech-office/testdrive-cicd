@@ -80,7 +80,7 @@ objects:
       application: ${APPLICATION_NAME}
       deploymentConfig: ${APPLICATION_NAME}-app
     strategy:
-      type: Recreate
+      type: Rolling
     template:
       metadata:
         labels:
