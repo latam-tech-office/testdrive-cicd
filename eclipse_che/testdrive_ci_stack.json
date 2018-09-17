@@ -1,0 +1,116 @@
+{
+  "description": "TestDrive Continuous Integration",
+  "scope": "general",
+  "creator": "6157cefa-47df-4c5d-97b1-f940d678da21",
+  "tags": [
+    "Java",
+    "JDK",
+    "Maven",
+    "Tomcat"
+  ],
+  "workspaceConfig": {
+    "environments": {
+      "default": {
+        "recipe": {
+          "type": "dockerimage",
+          "content": "maltron/wildfly-che:latest"
+        },
+        "machines": {
+          "testdrive": {
+            "env": {},
+            "volumes": {},
+            "installers": [
+              "org.eclipse.che.exec",
+              "org.eclipse.che.terminal",
+              "org.eclipse.che.ws-agent"
+            ],
+            "servers": {
+              "wildfly": {
+                "attributes": {},
+                "protocol": "http",
+                "port": "8080"
+              },
+              "wildfly-remote": {
+                "attributes": {},
+                "protocol": "http",
+                "port": "9990"
+              },
+              "codeserver": {
+                "attributes": {},
+                "protocol": "http",
+                "port": "9876"
+              },
+              "wildfly-debug": {
+                "attributes": {},
+                "protocol": "http",
+                "port": "8000"
+              }
+            },
+            "attributes": {
+              "memoryLimitBytes": "2147483648"
+            }
+          }
+        }
+      }
+    },
+    "projects": [],
+    "commands": [
+      {
+        "commandLine": "${JBOSS_HOME}/bin/jboss-cli.sh --connect --command=:shutdown",
+        "name": "wildfly: stop",
+        "type": "custom",
+        "attributes": {
+          "goal": "Run"
+        }
+      },
+      {
+        "commandLine": "${JBOSS_HOME}/bin/standalone.sh",
+        "name": "wildfly: run",
+        "type": "custom",
+        "attributes": {
+          "goal": "Run",
+          "previewUrl": "${server.wildfly}"
+        }
+      },
+      {
+        "commandLine": "mvn clean install -f ${current.project.path}",
+        "name": "build",
+        "type": "mvn",
+        "attributes": {
+          "goal": "Build",
+          "previewUrl": ""
+        }
+      },
+      {
+        "commandLine": "mvn wildfly:deploy -f ${current.project.path}/pom.xml",
+        "name": "deploy",
+        "type": "custom",
+        "attributes": {}
+      }
+    ],
+    "defaultEnv": "default",
+    "name": "wildfly2",
+    "attributes": {},
+    "links": []
+  },
+  "components": [
+    {
+      "version": "16.04",
+      "name": "Ubuntu"
+    },
+    {
+      "version": "1.8.0_162",
+      "name": "JDK"
+    },
+    {
+      "version": "3.3.9",
+      "name": "Maven"
+    },
+    {
+      "version": "10.1.0",
+      "name": "WildFly"
+    }
+  ],
+  "name": "TestDrive CI2",
+  "id": "stack711jwsn4qzxodw39"
+}

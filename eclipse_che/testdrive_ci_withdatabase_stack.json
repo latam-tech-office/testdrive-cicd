@@ -1,0 +1,107 @@
+{
+  "description": "TestDrive environment for Java Application and MySQL Database",
+  "scope": "general",
+  "creator": "6157cefa-47df-4c5d-97b1-f940d678da21",
+  "tags": [
+    "Java 1.8, Tomcat 8, MySQL 5.7"
+  ],
+  "workspaceConfig": {
+    "environments": {
+      "default": {
+        "recipe": {
+          "contentType": "application/x-yaml",
+          "type": "openshift",
+          "content": "kind: List\nitems:\n - \n  apiVersion: v1\n  kind: Pod\n  metadata:\n   name: testdrive\n   labels:\n    type: db\n  spec:\n   containers:\n    - \n     image: 'docker.io/maltron/wildfly-che:latest'\n     name: frontend\n     ports:\n      - \n       containerPort: 8080\n       protocol: TCP\n     resources:\n      limits:\n       memory: 2048Mi\n    - \n     image: centos/mysql-57-centos7\n     name: database\n     ports:\n      - \n       name: mysql\n       containerPort: 3306\n       protocol: TCP\n     env:\n      - \n       name: MYSQL_USER\n       value: testdrive\n      - \n       name: MYSQL_ROOT_PASSWORD\n       value: testdrive\n      - \n       name: MYSQL_PASSWORD\n       value: testdrive\n      - \n       name: MYSQL_DATABASE\n       value: testdrive\n     resources:\n      limits:\n       memory: 512Mi\n - \n  apiVersion: v1\n  kind: Service\n  metadata:\n   name: database\n  spec:\n   selector:\n    type: db\n   ports:\n    - \n     name: mysql\n     port: 3306\n     protocol: TCP\n     targetPort: mysql\n"
+        },
+        "machines": {
+          "testdrive/frontend": {
+            "env": {},
+            "volumes": {},
+            "installers": [
+              "org.eclipse.che.exec",
+              "org.eclipse.che.terminal",
+              "org.eclipse.che.ws-agent"
+            ],
+            "servers": {
+              "wildfly": {
+                "attributes": {},
+                "protocol": "http",
+                "port": "8080/tcp"
+              }
+            },
+            "attributes": {
+              "memoryLimitBytes": "2147483648"
+            }
+          },
+          "testdrive/database": {
+            "env": {},
+            "volumes": {},
+            "installers": [
+              "org.eclipse.che.exec",
+              "org.eclipse.che.terminal"
+            ],
+            "servers": {},
+            "attributes": {
+              "memoryLimitBytes": "536870912"
+            }
+          }
+        }
+      }
+    },
+    "projects": [],
+    "commands": [
+      {
+        "commandLine": "${JBOSS_HOME}/bin/jboss-cli.sh --connect --command=:shutdown",
+        "name": "wildfly: stop",
+        "type": "custom",
+        "attributes": {
+          "goal": "Run"
+        }
+      },
+      {
+        "commandLine": "${JBOSS_HOME}/bin/standalone.sh",
+        "name": "wildfly: run",
+        "type": "custom",
+        "attributes": {
+          "goal": "Run",
+          "previewUrl": "${server.wildfly}"
+        }
+      },
+      {
+        "commandLine": "mvn clean install -f ${current.project.path}",
+        "name": "build",
+        "type": "mvn",
+        "attributes": {
+          "goal": "Build",
+          "previewUrl": ""
+        }
+      },
+      {
+        "commandLine": "mvn wildfly:deploy -f ${current.project.path}/pom.xml",
+        "name": "deploy",
+        "type": "custom",
+        "attributes": {}
+      }
+    ],
+    "defaultEnv": "default",
+    "name": "testdrive",
+    "attributes": {},
+    "links": []
+  },
+  "components": [
+    {
+      "version": "7",
+      "name": "Centos"
+    },
+    {
+      "version": "1.8.0_144",
+      "name": "OpenJDK"
+    },
+    {
+      "version": "5.7.21",
+      "name": "MySQL"
+    }
+  ],
+  "name": "TestDrive CI with Database",
+  "id": "stackz9re6h6yli2cgfip"
+}
