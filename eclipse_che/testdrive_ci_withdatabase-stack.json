@@ -52,7 +52,7 @@
     "commands": [
       {
         "commandLine": "${JBOSS_HOME}/bin/jboss-cli.sh --connect --command=:shutdown",
-        "name": "wildfly: stop",
+        "name": "WildFly: STOP",
         "type": "custom",
         "attributes": {
           "goal": "Run"
@@ -60,7 +60,7 @@
       },
       {
         "commandLine": "${JBOSS_HOME}/bin/standalone.sh",
-        "name": "wildfly: run",
+        "name": "WildFly: RUN",
         "type": "custom",
         "attributes": {
           "goal": "Run",
@@ -69,7 +69,7 @@
       },
       {
         "commandLine": "mvn clean install -f ${current.project.path}",
-        "name": "build",
+        "name": "Build",
         "type": "mvn",
         "attributes": {
           "goal": "Build",
@@ -78,7 +78,7 @@
       },
       {
         "commandLine": "mvn wildfly:deploy -f ${current.project.path}/pom.xml",
-        "name": "deploy",
+        "name": "Deploy",
         "type": "custom",
         "attributes": {}
       }
@@ -100,6 +100,10 @@
     {
       "version": "5.7.21",
       "name": "MySQL"
+    },
+    {
+      "version": "10.1.0",
+      "name": "WildFly"
     }
   ],
   "name": "TestDrive CI with Database",

@@ -57,7 +57,7 @@
     "commands": [
       {
         "commandLine": "${JBOSS_HOME}/bin/jboss-cli.sh --connect --command=:shutdown",
-        "name": "wildfly: stop",
+        "name": "WildFly: STOP",
         "type": "custom",
         "attributes": {
           "goal": "Run"
@@ -65,7 +65,7 @@
       },
       {
         "commandLine": "${JBOSS_HOME}/bin/standalone.sh",
-        "name": "wildfly: run",
+        "name": "WildFLY: RUN",
         "type": "custom",
         "attributes": {
           "goal": "Run",
@@ -83,13 +83,13 @@
       },
       {
         "commandLine": "mvn wildfly:deploy -f ${current.project.path}/pom.xml",
-        "name": "deploy",
+        "name": "Deploy",
         "type": "custom",
         "attributes": {}
       }
     ],
     "defaultEnv": "default",
-    "name": "wildfly2",
+    "name": "wildfly",
     "attributes": {},
     "links": []
   },
@@ -111,6 +111,6 @@
       "name": "WildFly"
     }
   ],
-  "name": "TestDrive CI2",
+  "name": "TestDrive CI",
   "id": "stack711jwsn4qzxodw39"
 }
