@@ -139,3 +139,4 @@ parameters:
   displayName: Username
   description: Username to access the host
   required: true
+  value: "root"
