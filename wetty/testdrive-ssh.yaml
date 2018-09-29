@@ -62,7 +62,7 @@ objects:
             value: ${HOSTNAME}
           - name: REMOTE_SSH_PORT
             value: ${PORT}
-          - name: REMOTE_SSH_USERNAME
+          - name: REMOTE_SSH_USER
             value: ${USERNAME}
           image: ' '
           imagePullPolicy: IfNotPresent
