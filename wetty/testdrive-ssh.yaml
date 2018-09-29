@@ -1,0 +1,141 @@
+apiVersion: v1
+kind: Template
+metadata:
+  annotations:
+    description: |-
+      SSH Client to be used during TestDrives
+
+      WARNING: Any data stored will be lost upon pod destruction. Only use this template during a TestDrive activity.
+    openshift.io/display-name: TestDrive SSH
+    openshift.io/documentation-url: https://github.com/latam-tech-office/testdrive-cicd
+    openshift.io/long-description: Deploys a SSH Client to be used during TestDrives.
+    openshift.io/provider-display-name: Red Hat, Inc. -> LATAM Technology Office
+    openshift.io/support-url: https://access.redhat.com
+    tags: wetty,ssh,testdrive
+  name: testdrive-ssh
+message: TestDrive SSH
+objects:
+- apiVersion: v1
+  kind: ImageStream
+  metadata:
+    labels:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-testdrive-ssh
+  spec:
+    lookupPolicy:
+      local: false
+    tags:
+    - from:
+        kind: DockerImage
+        name: docker.io/maltron/wetty:latest
+      importPolicy: {}
+      name: latest
+      referencePolicy:
+        type: Source
+- apiVersion: v1
+  kind: DeploymentConfig
+  metadata:
+    labels:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-testdrive-ssh
+  spec:
+    replicas: 1
+    selector:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-testdrive-ssh
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          component: testdrive-ssh
+          application: ${APPLICATION_NAME}
+          deploymentConfig: ${APPLICATION_NAME}-testdrive-ssh
+        name: ${APPLICATION_NAME}-testdrive-ssh
+      spec:
+        containers:
+        - env:
+          - name: REMOTE_SSH_SERVER
+            value: ${HOSTNAME}
+          - name: REMOTE_SSH_PORT
+            value: ${PORT}
+          - name: REMOTE_SSH_USERNAME
+            value: ${USERNAME}
+          image: ' '
+          imagePullPolicy: IfNotPresent
+          name: ${APPLICATION_NAME}-testdrive-ssh
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 3
+            timeoutSeconds: 240
+          ports:
+          - containerPort: 3000
+            name: http
+            protocol: TCP
+    triggers:
+    - imageChangeParams:
+        automatic: true
+        containerNames:
+        - ${APPLICATION_NAME}-testdrive-ssh
+        from:
+          kind: ImageStreamTag
+          name: ${APPLICATION_NAME}-testdrive-ssh:latest
+      type: ImageChange
+    - type: ConfigChange
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      description: SSH access through Web
+    labels:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-testdrive-ssh
+  spec:
+    ports:
+    - port: 3000
+      targetPort: 3000
+    selector:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+      deploymentConfig: ${APPLICATION_NAME}-testdrive-ssh
+- apiVersion: v1
+  id: ${APPLICATION_NAME}-testdrive-ssh
+  kind: Route
+  metadata:
+    annotations:
+      description: Route for application's http service.
+    labels:
+      component: testdrive-ssh
+      application: ${APPLICATION_NAME}
+    name: ${APPLICATION_NAME}-testdrive-ssh
+  spec:
+    port:
+      targetPort: 3000
+    to:
+      kind: Service
+      name: ${APPLICATION_NAME}-testdrive-ssh
+parameters:
+- description: Name for this instance
+  name: APPLICATION_NAME
+  displayName: Application's Name
+  required: true
+  value: myserver
+- name: HOSTNAME
+  displayName: Hostname
+  description: Public IP or hostname
+  required: true
+- name: PORT
+  displayName: Port
+  description: SSH's port to access the host
+  required: true
+  value: "22"
+- name: USERNAME
+  displayName: Username
+  description: Username to access the host
+  required: true
