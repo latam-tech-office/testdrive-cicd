@@ -77,10 +77,6 @@ objects:
           - containerPort: 3000
             name: http
             protocol: TCP
-          securityContext:
-            privileged: true
-        serviceAccount: ${APPLICATION_NAME}-testdrive-ssh
-        serviceAccountName: ${APPLICATION_NAME}-testdrive-ssh
     triggers:
     - imageChangeParams:
         automatic: true
@@ -91,10 +87,6 @@ objects:
           name: ${APPLICATION_NAME}-testdrive-ssh:latest
       type: ImageChange
     - type: ConfigChange
-- apiVersion: v1
-  kind: ServiceAccount
-  metadata:
-    name: ${APPLICATION_NAME}-testdrive-ssh
 - apiVersion: v1
   kind: Service
   metadata:

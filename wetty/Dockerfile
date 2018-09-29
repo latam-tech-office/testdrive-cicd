@@ -23,5 +23,5 @@ RUN addgroup -S ${USER} -g ${GROUP_ID} && adduser -u ${USER_ID} -S -G ${USER} -h
 
 WORKDIR ${TESTDRIVE_HOME}
 EXPOSE 3000
-USER ${USER}
+USER ${USER_ID}
 ENTRYPOINT node app.js -p 3000 --sshhost $REMOTE_SSH_SERVER --sshport $REMOTE_SSH_PORT --sshuser $REMOTE_SSH_USER
